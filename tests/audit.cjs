@@ -8,9 +8,9 @@ const fs = require('fs');
 const axeSource = fs.readFileSync('/tmp/node_modules/axe-core/axe.min.js', 'utf8');
 
 const HTML_PATH = path.resolve(__dirname, '..',
-  process.env.OPLAN_VERSION === 'v4'
-    ? 'Annual_Operational_Plan_2026_V0_4.html'
-    : 'Annual_Operational_Plan_2026_V0_5.html');
+  process.env.OPLAN_VERSION === 'v4' ? 'Annual_Operational_Plan_2026_V0_4.html' :
+  process.env.OPLAN_VERSION === 'v5' ? 'Annual_Operational_Plan_2026_V0_5.html' :
+  'Annual_Operational_Plan_2026_V0_6.html');
 const URL_LOCAL = 'file://' + HTML_PATH;
 
 const findings = [];
@@ -47,7 +47,7 @@ async function testBaseline(){
     await page.goto(URL_LOCAL, { waitUntil: 'load' });
     await page.waitForTimeout(800);
     const title = await page.title();
-    if (!/V0\.[45]/.test(title)) record('P1', 'metadata', 'Title mismatch', 'Page <title> does not contain V0.4 or V0.5', `title="${title}"`);
+    if (!/V0\.[456]/.test(title)) record('P1', 'metadata', 'Title mismatch', 'Page <title> does not contain a supported V0.x tag', `title="${title}"`);
     if (errs.length) errs.forEach(e => record('P0', 'js-runtime', 'JS error on load', e.msg, e.type));
   });
 }
