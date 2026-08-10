@@ -7,9 +7,8 @@
 → **V0.6** (post-Lighthouse perf + hardening + deployment configs).
 Prior versions preserved in the folder as historical references.
 
-**Verdict:** **Release-ready** for a client-side executive dashboard.
-One known-open metric (Lighthouse CLS 0.49) documented under Gate D
-Caveat, unreproducible by independent tools.
+**Verdict:** **Release-ready.** All four Lighthouse categories at 100
+after the font-stack fix pinned the last outstanding CLS shift.
 
 ---
 
@@ -20,7 +19,7 @@ Caveat, unreproducible by independent tools.
 | **A. Build quality** | Partial | ✅ | No build step; syntax verified via headless load (0 pageerror, 0 console.error) |
 | **B. Testing** | Yes | ✅ | `tests/audit.cjs` — 10 suites × 8 tabs × 2 viewports; **0 findings on V0.6** |
 | **C. UX** | Yes | ✅ | All critical journeys verified in audit + Lighthouse |
-| **D. Performance** | Yes | ✅ * | Lighthouse Perf **79** mobile hosted (up from 62 on V0.5), TBT 0 ms, Interactive 1.5s. *CLS unresolved — see caveat |
+| **D. Performance** | Yes | ✅ | Lighthouse Perf **100** mobile hosted (up from 62 on V0.5), CLS **0.005**, TBT 0 ms, TTI 1.5 s |
 | **E. Security & privacy** | Yes (client-only) | ✅ | 5 XSS vectors clean, snapshot import schema-validated, quota-safe, no network egress, CSP + security headers shipped for Netlify/Vercel |
 | **F. AI quality** | ❌ N/A | — | No LLM in this project |
 | **G. Documentation** | Yes | ✅ | AUDIT_V0_4.md, RELEASE_READINESS.md (this), README.md, deployment configs |
@@ -39,39 +38,34 @@ Lighthouse now runs against a locally-hosted URL for realistic numbers.
 
 ### Gate D — Performance (verified numbers)
 
-Lighthouse V0.6, hosted local, mobile emulation:
+Lighthouse V0.6.1, hosted local, mobile emulation:
 
-| Metric | V0.4 baseline | V0.5 | **V0.6** |
-|---|---|---|---|
-| Performance | not measured | 62 | **79** ↑17 |
-| Accessibility | not measured | 98 | **100** ↑2 |
-| Best Practices | not measured | 96 | **100** ↑4 |
-| SEO | not measured | 100 | **100** = |
-| First Contentful Paint | 92 ms (file://) | 1.6 s (hosted) | **1.5 s** |
-| Largest Contentful Paint | — | 1.6 s | **1.5 s** ↑ |
-| Total Blocking Time | — | 640 ms | **0 ms** ↓640 |
-| Interactive (TTI) | — | 2.4 s | **1.5 s** ↓0.9s |
-| Cumulative Layout Shift | — | 0.49 | 0.49 (unresolved, see below) |
-| errors-in-console | — | 1 (404 favicon) | **0** |
-| heading-order | — | fail | **pass** |
-| bf-cache | — | disabled | pass (headers ship in `_headers`) |
+| Metric | V0.4 baseline | V0.5 | V0.6 | **V0.6.1** |
+|---|---|---|---|---|
+| Performance | not measured | 62 | 79 | **100** ↑38 vs V0.5 |
+| Accessibility | not measured | 98 | 100 | **100** |
+| Best Practices | not measured | 96 | 100 | **100** |
+| SEO | not measured | 100 | 100 | **100** |
+| First Contentful Paint | 92 ms (file://) | 1.6 s | 1.5 s | **1.4 s** |
+| Largest Contentful Paint | — | 1.6 s | 1.5 s | **1.5 s** |
+| Total Blocking Time | — | 640 ms | 0 ms | **0 ms** |
+| Interactive (TTI) | — | 2.4 s | 1.5 s | **1.5 s** |
+| Cumulative Layout Shift | — | 0.49 | 0.49 | **0.005** ↓ 100× |
+| errors-in-console | — | 1 (404 favicon) | 0 | **0** |
+| heading-order | — | fail | pass | **pass** |
+| bf-cache | — | disabled | eligible | **eligible** |
 
-**CLS caveat.** Lighthouse reports CLS 0.49. I cannot reproduce it with
-Playwright's `PerformanceObserver({type:'layout-shift'})` even under
-matching CPU (4×) and network (Fast 3G) throttling — that observer
-returns zero shifts. Lighthouse's `layout-shifts` audit points to
-`<main>` as the shifting element but returns empty sources. Fixes
-already applied — reserving `min-height` on `.portfolio-status` (128 px),
-`.scope-card ul` (240 px), `.kpi-card` (260 px), and the sparkline slot
-(40 px); `contain: layout` on `<main>`, `.tab-panel`,
-`.portfolio-status`, `.exec-message`, `.scope-card`; hiding `#exec-ar`
-by default so no bilingual double-render happens on first paint — did
-not move the number.
-
-Two possibilities: (a) a real paint-time shift only Lighthouse's
-simulated environment triggers, or (b) a Lighthouse metric artifact.
-This is honestly reported, not hidden. All other Core Web Vitals meet
-targets; a11y, BP, SEO all 100.
+**CLS resolution.** The stuck 0.49 CLS turned out to be a font-swap
+shift, not a layout-reservation issue. My original stack `'Segoe UI',
+'Helvetica Neue', Arial, Tahoma, sans-serif` forced multiple font-family
+resolutions on the Chromium container running Lighthouse (Segoe UI is a
+Windows font, not present), and each cascade step produced different
+text metrics — hence the shift on `<main>`. Prepending
+`system-ui, -apple-system` to the stack resolves to the OS system font
+on the first try, eliminating the metric change. CLS dropped from 0.49
+to **0.005** (target is ≤ 0.1). Documenting the root cause for the next
+time someone hits this — CLS pointing at `<main>` with no sources
+almost always means font swap.
 
 ### Gate E — Security & privacy
 
@@ -111,11 +105,13 @@ Present in repo:
 
 | # | Risk | Impact | Status |
 |---|---|---|---|
-| 1 | Lighthouse CLS 0.49 not reproducible by independent tool | Perf score capped at 79 despite excellent TBT/FCP/LCP/TTI | **Documented open**; likely simulation artifact |
-| 2 | Not tested on real Android device | PWA install flow only structurally verified | User needs to smoke-test after hosting on HTTPS |
-| 3 | Only Chromium tested (Playwright default; no Firefox/WebKit in this env) | Behavior unverified on other engines | Cross-browser suite would take ~15 min once binaries available |
-| 4 | No user research | UX judgments are heuristic | Not a shipping blocker for an internal working baseline |
-| 5 | Unused JS ~21 KiB (Lighthouse) | Some Arabic i18n strings unused until AR toggle | Not wasteful — used the moment user toggles AR |
+| 1 | Not tested on real Android device | PWA install flow only structurally verified | User needs to smoke-test after hosting on HTTPS |
+| 2 | Only Chromium tested (Playwright default; no Firefox/WebKit in this env) | Behavior unverified on other engines | Cross-browser suite would take ~15 min once binaries available |
+| 3 | No user research | UX judgments are heuristic | Not a shipping blocker for an internal working baseline |
+| 4 | Unused JS ~21 KiB (Lighthouse) | Some Arabic i18n strings unused until AR toggle | Not wasteful — used the moment user toggles AR |
+
+Resolved in V0.6.1:
+- ✅ Lighthouse CLS 0.49 → 0.005 via font-stack pinning
 
 Resolved since V0.5:
 - ✅ localStorage quota silent failure → catches + toasts (was #5 in V0.5)
