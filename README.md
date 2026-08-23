@@ -1,5 +1,16 @@
 # Annual Operational Plan 2026
 
+## Product Authority
+
+| | |
+|---|---|
+| **Primary User** | Department director / planning lead |
+| **Job To Be Done** | Manage annual & monthly performance without Excel chaos |
+| **System of Record** | Targets, KPIs, monthly reviews, management actions |
+| **System of Intelligence** | Deterministic trend alerts, traffic-light status |
+| **Explicit Non-Goals** | Invoice validation engine (displays VERTEX results only) · task management (→ ExecFlow) · SaaS rewrite — the core stays offline |
+
+
 Single-file client-side executive dashboard. Zero dependencies, zero
 backend, zero telemetry. Everything persists to `localStorage` on the
 user's own device; nothing is transmitted.
