@@ -7,8 +7,13 @@
   command = ""
 
 [[redirects]]
-  # Send / and /index.html to the current release (V0.6).
-  # Update this on a new version — one line, one place.
+  # Send / and /index.html to the current release.
+  #
+  # This is one of eight pins across three files: netlify.toml, vercel.json and
+  # index.html (which is what GitHub Pages serves). They must all name the same
+  # file. `scripts/check-current-release.mjs` enforces that in CI and prints
+  # every line to change, so publishing a new release cannot silently leave a
+  # host behind.
   from = "/"
   to = "/Annual_Operational_Plan_2026_V0_6.html"
   status = 200

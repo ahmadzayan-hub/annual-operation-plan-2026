@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  current-release:
+    name: current release is pinned consistently
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Three hosts serve this plan and each pins the current release its own
+      # way. Nothing else makes them agree, and a host left behind serves last
+      # quarter's plan with a 200 and no error. This is the thing that fails.
+      - run: node scripts/check-current-release.mjs
