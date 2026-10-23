@@ -15,24 +15,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
   deploy:
+    needs: verify
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build static package
+        run: npm run build
+      # Enable the intended GitHub Actions source once in Settings > Pages.
+      # Do not try to create a site using a workflow token without admin access.
       - name: Configure Pages
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
-
+          path: dist
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4

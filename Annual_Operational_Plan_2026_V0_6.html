@@ -1047,7 +1047,7 @@ h2.section-title, h3.section-title{margin:0 0 6px}  /* reset UA h2/h3 margin */
 
 <!-- Modal -->
 <div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-head">
       <h3 id="modalTitle">KPI Detail</h3>
       <button class="modal-close" onclick="closeModal()" aria-label="Close">✕</button>
@@ -1455,6 +1455,7 @@ function loadState(){
     if (!raw) for (const k of LEGACY_KEYS) { const v = localStorage.getItem(k); if (v) { raw = v; break; } }
     if (raw) {
       const parsed = JSON.parse(raw);
+      if (!validateSnapshot(parsed).ok) throw new Error('Stored snapshot has an invalid shape');
       state.kpi = parsed.kpi || {};
       state.decisions = parsed.decisions || {};
       state.gaps = parsed.gaps || {};
@@ -1468,9 +1469,9 @@ function loadState(){
   Object.keys(state.kpi).forEach(id => {
     const rec = state.kpi[id];
     if (!rec) return;
-    if (!rec.history) rec.history = {};
-    if (rec.value != null && rec.value !== '' && Object.keys(rec.history).length === 0) {
-      rec.history[currentMonthKey()] = rec.value;
+    if (!rec.history) {
+      rec.history = {};
+      if (rec.value != null && rec.value !== '') rec.history[currentMonthKey()] = rec.value;
     }
   });
   GAPS.forEach(g => { if (!state.gaps[g.id]) state.gaps[g.id] = 'not-started'; });
@@ -1502,32 +1503,67 @@ function saveFilters(){
    Never throws; caller decides whether to load or reject. */
 function validateSnapshot(raw){
   const errors = [];
-  if (raw == null || typeof raw !== 'object') return { ok:false, errors:['Not an object'] };
-  if (raw.version != null && !/^0\.[2-9]$/.test(String(raw.version))) errors.push(`Unknown snapshot version "${raw.version}"`);
-  const isPlainObj = v => v && typeof v === 'object' && !Array.isArray(v);
-  const check = (key, isValid) => { if (raw[key] != null && !isValid(raw[key])) errors.push(`${key}: wrong shape`); };
-  check('kpi', isPlainObj);
-  check('decisions', isPlainObj);
-  check('gaps', isPlainObj);
-  check('customKPIs', v => Array.isArray(v));
-  check('annotations', isPlainObj);
-  if (Array.isArray(raw.customKPIs)) {
-    if (raw.customKPIs.length > 200) errors.push('customKPIs: exceeds 200 entries (suspicious)');
-    raw.customKPIs.forEach((k, i) => {
-      if (!k || typeof k !== 'object') errors.push(`customKPIs[${i}]: not an object`);
-      else if (!k.id || typeof k.id !== 'string') errors.push(`customKPIs[${i}]: missing id`);
-      else if (!isPlainObj(k.name)) errors.push(`customKPIs[${i}]: missing name`);
+  const isPlainObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+  const forbidden = new Set(['__proto__', 'prototype', 'constructor']);
+  const validId = v => typeof v === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(v) && !forbidden.has(v);
+  const text = v => typeof v === 'string' && v.length <= 20000;
+  const value = v => text(v) || (typeof v === 'number' && Number.isFinite(v));
+  const translated = v => text(v) || (isPlainObj(v) && text(v.en) && (v.ar == null || text(v.ar)));
+  const invalid = message => errors.push(message);
+  if (!isPlainObj(raw)) return { ok:false, errors:['Not an object'] };
+  if (raw.version != null && !/^0\.[2-9]$/.test(String(raw.version))) invalid('Unknown snapshot version');
+  const checkMap = (key, checkEntry, limit=1000) => {
+    if (raw[key] == null) return;
+    if (!isPlainObj(raw[key])) { invalid(key + ': wrong shape'); return; }
+    const entries = Object.entries(raw[key]);
+    if (entries.length > limit) { invalid(key + ': too many entries'); return; }
+    entries.forEach(([id, v]) => {
+      if (forbidden.has(id)) invalid(key + ': unsafe key');
+      else checkEntry(id, v);
     });
+  };
+  checkMap('kpi', (id, rec) => {
+    if (!validId(id) || !isPlainObj(rec)) { invalid('kpi: invalid record'); return; }
+    if (rec.value != null && !value(rec.value)) invalid('kpi: invalid value');
+    if (rec.note != null && !text(rec.note)) invalid('kpi: invalid note');
+    if (rec.updated != null && (typeof rec.updated !== 'number' || !Number.isFinite(rec.updated))) invalid('kpi: invalid timestamp');
+    if (rec.history != null) {
+      if (!isPlainObj(rec.history)) { invalid('kpi: invalid history'); return; }
+      if (Object.keys(rec.history).length > 1200) invalid('kpi: too many months');
+      Object.entries(rec.history).forEach(([month, v]) => {
+        if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || !value(v)) invalid('kpi: invalid month or value');
+      });
+    }
+  });
+  checkMap('decisions', (id, v) => { if (!validId(id) || !['pending','approved','held','declined'].includes(v)) invalid('decisions: invalid state'); });
+  checkMap('gaps', (id, v) => { if (!validId(id) || !['not-started','in-progress','completed'].includes(v)) invalid('gaps: invalid state'); });
+  checkMap('annotations', (id, v) => { if (!text(id) || !text(v)) invalid('annotations: invalid text'); });
+  if (raw.customKPIs != null) {
+    if (!Array.isArray(raw.customKPIs)) invalid('customKPIs: wrong shape');
+    else if (raw.customKPIs.length > 200) invalid('customKPIs: exceeds 200 entries');
+    else {
+      const ids = new Set(KPIS.map(k => k.id));
+      raw.customKPIs.forEach(k => {
+        if (!isPlainObj(k) || !validId(k.id)) { invalid('customKPIs: invalid id'); return; }
+        if (ids.has(k.id)) invalid('customKPIs: duplicate id');
+        ids.add(k.id);
+        for (const key of ['name','target','impact','decision']) if (!translated(k[key])) invalid('customKPIs: invalid ' + key);
+        if (k.custom !== true) invalid('customKPIs: missing custom marker');
+        if (!['gte','zero','trend'].includes(k.targetType)) invalid('customKPIs: invalid target type');
+        if (k.targetType === 'gte' && (typeof k.targetVal !== 'number' || !Number.isFinite(k.targetVal))) invalid('customKPIs: invalid threshold');
+        if (!['impact-high','impact-mh','impact-medium'].includes(k.impactClass)) invalid('customKPIs: invalid impact class');
+      });
+    }
   }
   return { ok: errors.length === 0, errors, data: raw };
 }
 function latestKpiValue(rec){
   if (!rec) return null;
-  if (rec.history && Object.keys(rec.history).length) {
-    const months = Object.keys(rec.history).filter(m => rec.history[m] !== '').sort();
-    if (months.length) return { month: months[months.length-1], value: rec.history[months[months.length-1]] };
+  if (rec.history) {
+    const months = Object.keys(rec.history).filter(m => rec.history[m] !== '' && rec.history[m] != null).sort();
+    return months.length ? { month: months[months.length-1], value: rec.history[months[months.length-1]] } : null;
   }
-  return rec.value ? { month: currentMonthKey(), value: rec.value } : null;
+  return rec.value != null && rec.value !== '' ? { month: currentMonthKey(), value: rec.value } : null;
 }
 
 /* ============================================================
@@ -1876,8 +1912,8 @@ function openKpiModal(id){
   const monthRows = Object.keys(rec.history).sort().map(m => `
     <tr>
       <td style="padding:6px 8px;font-size:12px;color:var(--navy);font-weight:700;white-space:nowrap">${safe(monthLabel(m))}</td>
-      <td style="padding:6px 8px"><input type="text" inputmode="decimal" value="${safe(rec.history[m])}" data-h-month="${m}" style="width:80px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;font-size:12px"/></td>
-      <td style="padding:6px 8px"><button onclick="deleteHistoryMonth('${id}','${m}')" style="background:var(--line);color:var(--navy);padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700">×</button></td>
+      <td style="padding:6px 8px"><input type="text" inputmode="decimal" value="${safe(rec.history[m])}" data-h-month="${m}" aria-label="${safe(monthLabel(m))}" style="width:80px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;font-size:12px"/></td>
+      <td style="padding:6px 8px"><button onclick="deleteHistoryMonth('${id}','${m}')" aria-label="${safe(t('kpi.delete'))}: ${safe(monthLabel(m))}" style="background:var(--line);color:var(--navy);padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700">×</button></td>
     </tr>
   `).join('');
   const cm = currentMonthKey();
@@ -1899,13 +1935,13 @@ function openKpiModal(id){
         </table>
       </div>
       <div style="display:flex;gap:6px;margin-top:8px;align-items:center">
-        <input type="month" id="new-month" value="${cm}" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;font-size:12px"/>
-        <input type="text" inputmode="decimal" id="new-value" placeholder="${t('kpi.enterValue')}" style="flex:1;padding:6px 10px;border:1px solid var(--line);border-radius:6px;font-size:12px"/>
+        <input type="month" id="new-month" aria-label="${safe(t('kpi.addMonth'))}" value="${cm}" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;font-size:12px"/>
+        <input type="text" inputmode="decimal" id="new-value" aria-label="${safe(t('kpi.enterValue'))}" placeholder="${t('kpi.enterValue')}" style="flex:1;padding:6px 10px;border:1px solid var(--line);border-radius:6px;font-size:12px"/>
         <button onclick="addHistoryMonth('${id}')" style="background:var(--navy);color:#fff;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:700">+ ${t('kpi.addMonth')}</button>
       </div>
     </div>
     <div class="field">
-      <label>${t('modal.notes')}</label>
+      <label for="modal-notes">${t('modal.notes')}</label>
       <textarea id="modal-notes" rows="3">${safe(rec.note || '')}</textarea>
     </div>
     ${rec.updated ? `<div style="font-size:11px;color:var(--grey);margin-top:-4px">${t('modal.updated')} ${fmtDate(rec.updated)}</div>` : ''}
@@ -2191,9 +2227,9 @@ function renderGaps(){
         <td>${priorityPill(g.priority)}</td>
         <td>
           <div class="status-pills">
-            <span class="status-pill not-started ${st==='not-started'?'active':''}" data-gap="${g.id}" data-status="not-started">${t('gap.ns')}</span>
-            <span class="status-pill in-progress ${st==='in-progress'?'active':''}" data-gap="${g.id}" data-status="in-progress">${t('gap.ip')}</span>
-            <span class="status-pill completed ${st==='completed'?'active':''}" data-gap="${g.id}" data-status="completed">${t('gap.cp')}</span>
+            <button type="button" class="status-pill not-started ${st==='not-started'?'active':''}" data-gap="${g.id}" data-status="not-started">${t('gap.ns')}</button>
+            <button type="button" class="status-pill in-progress ${st==='in-progress'?'active':''}" data-gap="${g.id}" data-status="in-progress">${t('gap.ip')}</button>
+            <button type="button" class="status-pill completed ${st==='completed'?'active':''}" data-gap="${g.id}" data-status="completed">${t('gap.cp')}</button>
           </div>
         </td>
       </tr>
@@ -2234,10 +2270,10 @@ function renderDecisions(){
           <div class="meta-row"><span class="meta-lbl">${t('dec.status')}</span><span class="meta-val"><span class="status-badge ${stCls}">${stLabel}</span></span></div>
         </div>
         <div class="decision-actions">
-          <span class="status-pill approved ${st==='approved'?'active':''}" data-decision="${d.id}" data-action="approved">${t('dec.approve')}</span>
-          <span class="status-pill held ${st==='held'?'active':''}" data-decision="${d.id}" data-action="held">${t('dec.hold')}</span>
-          <span class="status-pill declined ${st==='declined'?'active':''}" data-decision="${d.id}" data-action="declined">${t('dec.decline')}</span>
-          <span class="status-pill pending ${st==='pending'?'active':''}" data-decision="${d.id}" data-action="pending">${t('dec.reset')}</span>
+          <button type="button" class="status-pill approved ${st==='approved'?'active':''}" data-decision="${d.id}" data-action="approved">${t('dec.approve')}</button>
+          <button type="button" class="status-pill held ${st==='held'?'active':''}" data-decision="${d.id}" data-action="held">${t('dec.hold')}</button>
+          <button type="button" class="status-pill declined ${st==='declined'?'active':''}" data-decision="${d.id}" data-action="declined">${t('dec.decline')}</button>
+          <button type="button" class="status-pill pending ${st==='pending'?'active':''}" data-decision="${d.id}" data-action="pending">${t('dec.reset')}</button>
         </div>
       </div>
     `;
@@ -2290,6 +2326,7 @@ function wireGlobal(){
   $('#file-in').addEventListener('change', e => {
     const file = e.target.files[0];
     if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { toast(t('toast.badFile')); e.target.value = ''; return; }
     const reader = new FileReader();
     reader.onload = ev => {
       try {
@@ -2371,6 +2408,12 @@ function wireGlobal(){
   // Escape closes modal
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeModal();
+    if (e.key === 'Tab' && $('#modal').classList.contains('active')) {
+      const nodes = Array.from($('#modal').querySelectorAll('button, input, select, textarea, [tabindex="0"]')).filter(el => !el.disabled && el.offsetParent !== null);
+      const first = nodes[0], last = nodes[nodes.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+    }
   });
 }
 
@@ -2386,20 +2429,21 @@ function switchTab(id, updateHash = true){
    V0.4 — Custom KPIs
    ============================================================ */
 function openCustomKpiForm(){
+  state._lastFocused = document.activeElement;
   $('#modalTitle').textContent = t('kpi.new.title');
   $('#modalBody').innerHTML = `
-    <div class="field"><label>${t('kpi.new.nameEn')}</label><input type="text" id="ck-name-en" style="width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px"/></div>
-    <div class="field"><label>${t('kpi.new.nameAr')}</label><input type="text" id="ck-name-ar" dir="rtl" style="width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px"/></div>
-    <div class="field"><label>${t('kpi.new.target')}</label><input type="text" id="ck-target" placeholder="e.g. ≥ 90%" style="width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px"/></div>
-    <div class="field"><label>${t('kpi.new.type')}</label>
+    <div class="field"><label for="ck-name-en">${t('kpi.new.nameEn')}</label><input type="text" id="ck-name-en" style="width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px"/></div>
+    <div class="field"><label for="ck-name-ar">${t('kpi.new.nameAr')}</label><input type="text" id="ck-name-ar" dir="rtl" style="width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px"/></div>
+    <div class="field"><label for="ck-target">${t('kpi.new.target')}</label><input type="text" id="ck-target" placeholder="e.g. ≥ 90%" style="width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px"/></div>
+    <div class="field"><label for="ck-type">${t('kpi.new.type')}</label>
       <select id="ck-type" style="width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px">
         <option value="gte">${t('kpi.new.typeGte')}</option>
         <option value="zero">${t('kpi.new.typeZero')}</option>
         <option value="trend">${t('kpi.new.typeTrend')}</option>
       </select>
     </div>
-    <div class="field" id="ck-thresh-wrap"><label>${t('kpi.new.thresh')}</label><input type="number" id="ck-thresh" step="0.01" style="width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px"/></div>
-    <div class="field"><label>${t('kpi.new.impact')}</label>
+    <div class="field" id="ck-thresh-wrap"><label for="ck-thresh">${t('kpi.new.thresh')}</label><input type="number" id="ck-thresh" step="0.01" style="width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px"/></div>
+    <div class="field"><label for="ck-impact">${t('kpi.new.impact')}</label>
       <select id="ck-impact" style="width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px">
         <option value="high">${t('kpi.new.impH')}</option>
         <option value="medium" selected>${t('kpi.new.impM')}</option>
@@ -2424,7 +2468,7 @@ function createCustomKPI(){
   const type = $('#ck-type').value;
   const thresh = parseFloat($('#ck-thresh').value);
   const impact = $('#ck-impact').value;
-  if (!nameEn || !target) { alert(t('kpi.new.err')); return; }
+  if (!nameEn || !target || (type === 'gte' && !isFinite(thresh))) { alert(t('kpi.new.err')); return; }
   const impactMap = {
     high:{class:'impact-high', label:{en:'High', ar:'مرتفع'}},
     medium:{class:'impact-medium', label:{en:'Medium', ar:'متوسط'}},
@@ -2632,3 +2676,4 @@ window.addEventListener('load', () => {
 </script>
 </body>
 </html>
+
