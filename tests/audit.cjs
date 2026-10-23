@@ -2,10 +2,10 @@
    file:// URL of Annual_Operational_Plan_2026_V0_4.html. Produces JSON that
    the audit doc consumes. Exits non-zero if any P0/P1 finding surfaces.
 */
-const playwright = require('/opt/node22/lib/node_modules/playwright');
+const playwright = require('playwright');
 const path = require('path');
 const fs = require('fs');
-const axeSource = fs.readFileSync('/tmp/node_modules/axe-core/axe.min.js', 'utf8');
+const axeSource = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
 
 const HTML_PATH = path.resolve(__dirname, '..',
   process.env.OPLAN_VERSION === 'v4' ? 'Annual_Operational_Plan_2026_V0_4.html' :
@@ -425,5 +425,6 @@ async function testRTL(){
     }
   });
   // Exit non-zero if any P0 (critical) found
-  process.exit(bySev.P0.length ? 1 : 0);
+  process.exit(bySev.P0.length || bySev.P1.length ? 1 : 0);
 })();
+

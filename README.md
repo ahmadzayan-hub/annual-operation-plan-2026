@@ -93,7 +93,7 @@ npx netlify deploy --prod --dir .
 npx vercel --prod
 ```
 
-**GitHub Pages:** point Pages at the `operational-plan/` folder.
+**GitHub Pages:** use Settings → Pages → Source: GitHub Actions. See [DEPLOY.md](DEPLOY.md) for the tested static-package workflow and one-time setup.
 
 Once hosted over HTTPS, Chrome on Android automatically detects the
 manifest + service worker + icons and offers an "Install" prompt. The
@@ -110,35 +110,31 @@ After installing from a hosted HTTPS URL:
 - **Sync between devices** — use the Save/Load buttons to move a JSON
   snapshot between devices; there is no server-side account.
 
-## Reproducing the audit
+## Reproducing the checks
 
-```bash
-# From this folder:
-node tests/audit.cjs                  # current release (V0.6)
-OPLAN_VERSION=v4 node tests/audit.cjs # V0.4 baseline (the pre-a11y-fix state)
+```sh
+npm ci
+npx playwright install --with-deps chromium
+npm test
+npm run build
+npm run test:browser
+npm run test:audit
 ```
 
-The script runs 10 test suites (functional, XSS, accessibility via
-axe-core, responsive at 5 viewports, performance, keyboard, PWA lint,
-print, i18n) and exits non-zero if any P0 finding surfaces.
+Node-only regressions cover persistence, legacy migration, deletion, invalid
+snapshots and keyboard-control markup. Browser acceptance covers custom KPI
+create/update/delete, save/reload, exported JSON restore in a fresh context,
+invalid-import preservation, Arabic/English accessibility including dialogs,
+and offline reload/edit/save under a repository subpath. The original ten-suite
+audit also runs with local pinned dependencies. CI rejects P0 or P1 findings.
 
-Prerequisites installed once in the container:
-
-```bash
-npm install --prefix /tmp axe-core@4
-# Playwright + Chromium are pre-installed globally
-```
-
-Real Lighthouse (mobile emulation, hosted URL):
-
-```bash
-# Start a local static host:
-http-server . -p 8765 -s -c-1
-# In another shell:
-npx lighthouse http://127.0.0.1:8765/Annual_Operational_Plan_2026_V0_6.html \
-  --output=json --output-path=/tmp/lh.json \
-  --chrome-flags="--headless=new --no-sandbox"
-```
+The 2026-10-23 hardening fixes prevent deleted final-month values resurfacing,
+validate nested snapshot data before rendering, make decision/gap actions
+keyboard-operable, label dialog controls and retain focus within dialogs.
+Service-worker cache cleanup is scoped to this application's cache names.
+These changes do not add a server or telemetry. See [DEPLOY.md](DEPLOY.md) for
+current hosting status verification and the backup contract. Historical audit
+scores in older documents are not evidence of a current live deployment.
 
 ## Non-goals
 
@@ -154,3 +150,4 @@ All content is deliberately generic. Zero references to any organisation,
 city, or vendor across the HTML, service worker, manifest, or icons.
 The seed data models rail-maintenance operational KPIs at abstract level
 for illustration.
+

@@ -1,0 +1,10 @@
+import { cpSync, mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import './check-current-release.mjs';
+const files = ['index.html', 'Annual_Operational_Plan_2026_V0_6.html', 'sw.js', 'manifest.webmanifest', 'icon-192.svg', 'icon-512.svg', 'icon-maskable.svg'];
+rmSync('dist', { recursive: true, force: true });
+mkdirSync('dist');
+for (const file of files) cpSync(file, `dist/${file}`);
+writeFileSync('dist/.nojekyll', '');
+writeFileSync('dist/release.json', JSON.stringify({ version:'0.6.2', commit:process.env.GITHUB_SHA || null, files:Object.fromEntries(files.map(file => [file, createHash('sha256').update(readFileSync(file)).digest('hex')])) }, null, 2) + '\n');
+console.log(`Static package: ${files.length} application files plus release metadata in dist/`);
