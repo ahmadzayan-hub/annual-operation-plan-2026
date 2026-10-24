@@ -9,6 +9,18 @@ for the current release.
 
 ---
 
+## Unreleased (V0.6 file, in place)
+
+### Added
+- Executive Summary status tiles open the view that holds their detail. The red-risk tile opens the risk register filtered to Red. Bilingual labels.
+
+### Changed
+- `vercel.json` now builds and serves the allowlisted `dist/` package instead of the repository root.
+- Service-worker cache version bumped so installed copies pick up the updated file.
+- README rewritten with banner, screenshots, scripts, architecture, deploy settings and an Arabic summary.
+
+---
+
 ## V0.6.1 (current) — Performance perfect scores
 
 **Highlight:** Lighthouse Perf **100 / 100 / 100 / 100** on mobile.

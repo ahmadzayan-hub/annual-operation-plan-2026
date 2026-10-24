@@ -2,7 +2,7 @@
  * Cache-first strategy for the app shell so the plan works offline
  * after the first visit. Bump CACHE_VERSION on release to invalidate.
  */
-const CACHE_VERSION = 'oplan-v06-20261023';
+const CACHE_VERSION = 'oplan-v06-20261024';
 const APP_SHELL = [
   './',
   './Annual_Operational_Plan_2026_V0_6.html',
