@@ -897,6 +897,7 @@ h2.section-title, h3.section-title{margin:0 0 6px}  /* reset UA h2/h3 margin */
     <input type="text" id="f-search" class="search-box" aria-label="Search project or category"/>
     <button class="btn-reset" id="proj-reset" data-i18n="f.reset">Reset</button>
     <button class="btn-reset" id="proj-csv" data-i18n="csv.export" style="background:var(--navy);color:#fff">CSV</button>
+    <button class="btn-reset" id="proj-xls" data-i18n="xls.export" style="background:var(--navy);color:#fff">Excel</button>
   </div>
 
   <div class="table-wrap" tabindex="0">
@@ -1106,7 +1107,7 @@ const I18N = {
     'kpi.clickHint':'Click for notes & detail',
     'kpi.viewDetails':'View details',
     'kpi.months':'months','kpi.history':'Monthly History','kpi.noHistory':'No monthly values entered yet.','kpi.addMonth':'Add',
-    'csv.export':'CSV',
+    'csv.export':'CSV','xls.export':'Excel',
     'kpi.addCustom':'+ Add custom KPI','kpi.custom':'Custom','kpi.delete':'Delete KPI',
     'kpi.new.title':'Add a custom KPI',
     'kpi.new.nameEn':'Name (English)','kpi.new.nameAr':'Name (Arabic)',
@@ -1231,7 +1232,7 @@ const I18N = {
     'kpi.clickHint':'اضغط للتفاصيل والملاحظات',
     'kpi.viewDetails':'عرض التفاصيل',
     'kpi.months':'شهر','kpi.history':'السجل الشهري','kpi.noHistory':'لم يتم إدخال قيم شهرية بعد.','kpi.addMonth':'إضافة',
-    'csv.export':'تصدير CSV',
+    'csv.export':'تصدير CSV','xls.export':'تصدير Excel',
     'kpi.addCustom':'+ إضافة مؤشر مخصص','kpi.custom':'مخصص','kpi.delete':'حذف المؤشر',
     'kpi.new.title':'إضافة مؤشر أداء مخصص',
     'kpi.new.nameEn':'الاسم (إنجليزي)','kpi.new.nameAr':'الاسم (عربي)',
@@ -1709,13 +1710,38 @@ function csvDownload(headers, rows, filename){
   a.href = url; a.download = filename; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 500);
 }
+function projectExportTable(){
+  return {
+    headers: ['#','Project','Category','Priority','Status','Estimated (AED)','Approved 2026 (AED)','Required Action'],
+    rows: filteredProjects().map((p,i) => [i+1, tl(p.name), tl(p.cat), p.priority, p.status, p.est, p.b26, tl(p.action)])
+  };
+}
 function exportProjectsCSV(){
-  const filtered = filteredProjects();
-  csvDownload(
-    ['#','Project','Category','Priority','Status','Estimated (AED)','Approved 2026 (AED)','Required Action'],
-    filtered.map((p,i) => [i+1, tl(p.name), tl(p.cat), p.priority, p.status, p.est, p.b26, tl(p.action)]),
-    'projects-'+new Date().toISOString().slice(0,10)+'.csv'
-  );
+  const t = projectExportTable();
+  csvDownload(t.headers, t.rows, 'projects-'+new Date().toISOString().slice(0,10)+'.csv');
+}
+function xmlEscape(v){
+  return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function spreadsheetXml(headers, rows){
+  const cell = v => typeof v === 'number' && Number.isFinite(v)
+    ? '<Cell><Data ss:Type="Number">'+v+'</Data></Cell>'
+    : '<Cell><Data ss:Type="String">'+xmlEscape(v)+'</Data></Cell>';
+  const row = r => '<Row>'+r.map(cell).join('')+'</Row>';
+  return '<?xml version="1.0" encoding="UTF-8"?>\n'
+    +'<?mso-application progid="Excel.Sheet"?>\n'
+    +'<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">'
+    +'<Worksheet ss:Name="Projects"><Table>'
+    +row(headers)+rows.map(row).join('')
+    +'</Table></Worksheet></Workbook>';
+}
+function exportProjectsXLS(){
+  const t = projectExportTable();
+  const blob = new Blob([spreadsheetXml(t.headers, t.rows)], { type:'application/vnd.ms-excel;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'projects-'+new Date().toISOString().slice(0,10)+'.xls'; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 500);
 }
 function exportRisksCSV(){
   const filtered = filteredRisks();
@@ -2395,6 +2421,7 @@ function wireGlobal(){
   $('#proj-reset').addEventListener('click', resetProjectFilters);
   $('#risk-reset').addEventListener('click', resetRiskFilters);
   $('#proj-csv').addEventListener('click', exportProjectsCSV);
+  $('#proj-xls').addEventListener('click', exportProjectsXLS);
   $('#risk-csv').addEventListener('click', exportRisksCSV);
   $('#portfolioStatus').addEventListener('click', e => {
     const tile = e.target.closest('[data-ps-go]');
