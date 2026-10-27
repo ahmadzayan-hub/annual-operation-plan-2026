@@ -133,6 +133,11 @@ h2.section-title, h3.section-title{margin:0 0 6px}  /* reset UA h2/h3 margin */
 /* V0.6: exec-message + scope cards get layout containment so their late fill doesn't shift siblings */
 .exec-message, .scope-card{contain:layout}
 .ps-item{text-align:center}
+/* Status tiles open the tab that holds their detail (red risks open the register filtered to Red). */
+.ps-link{display:block;padding:8px 6px;border-radius:10px;color:inherit;text-decoration:none;transition:background .15s}
+.ps-link:hover{background:var(--bg-2)}
+.ps-go{font-size:11px;font-weight:700;color:var(--blue);margin-top:4px}
+@media print{.ps-go{display:none}}
 .ps-num{font-size:26px;font-weight:800;color:var(--navy);line-height:1.1;letter-spacing:-.5px}
 .ps-num.warn{color:var(--amber)}.ps-num.bad{color:var(--red)}.ps-num.ok{color:var(--green)}
 .ps-lbl{font-size:11px;color:var(--grey);text-transform:uppercase;letter-spacing:.4px;font-weight:700;margin-top:2px}
@@ -1089,7 +1094,7 @@ const I18N = {
     't1.title':'Executive Summary','t1.sub':'Plan purpose, current status snapshot, and required decisions',
     'scope.confirmed':'What is Confirmed','scope.pending':'What is Pending',
     'scope.scope':'Version 0.6 Scope','scope.decisions':'Key Decisions Required',
-    'ps.kpi':'KPIs with values','ps.gap':'Data gaps closed','ps.dec':'Decisions approved','ps.risk':'Red risks',
+    'ps.kpi':'KPIs with values','ps.gap':'Data gaps closed','ps.dec':'Decisions approved','ps.risk':'Red risks','ps.open':'Open →',
 
     // Tab 2
     't2.title':'Monthly Executive Dashboard',
@@ -1215,7 +1220,7 @@ const I18N = {
     't1.title':'الملخص التنفيذي','t1.sub':'هدف الخطة، والحالة الراهنة، والقرارات المطلوبة.',
     'scope.confirmed':'ما تم اعتماده','scope.pending':'ما هو قيد الاستكمال',
     'scope.scope':'نطاق الإصدار 0.2','scope.decisions':'القرارات الرئيسية المطلوبة',
-    'ps.kpi':'مؤشرات تم إدخالها','ps.gap':'فجوات بيانات مغلقة','ps.dec':'قرارات معتمدة','ps.risk':'مخاطر حمراء',
+    'ps.kpi':'مؤشرات تم إدخالها','ps.gap':'فجوات بيانات مغلقة','ps.dec':'قرارات معتمدة','ps.risk':'مخاطر حمراء','ps.open':'افتح ←',
 
     't2.title':'اللوحة التنفيذية الشهرية',
     't2.sub':'أدخل القيم الشهرية مباشرةً. الحالة تُحسب مقابل الهدف. اضغط على أي بطاقة لعرض التفاصيل وإضافة ملاحظات.',
@@ -1811,10 +1816,10 @@ function renderPortfolioStatus(){
 
   const cls = (n, total) => n === total ? 'ok' : n === 0 ? 'bad' : 'warn';
   const html = `
-    <div class="ps-item"><div class="ps-num ${cls(filledKPIs, kpiTotal)}">${filledKPIs} / ${kpiTotal}</div><div class="ps-lbl">${t('ps.kpi')}</div></div>
-    <div class="ps-item"><div class="ps-num ${cls(closedGaps, GAPS.length)}">${closedGaps} / ${GAPS.length}</div><div class="ps-lbl">${t('ps.gap')}</div></div>
-    <div class="ps-item"><div class="ps-num ${cls(approvedDec, DECISIONS.length)}">${approvedDec} / ${DECISIONS.length}</div><div class="ps-lbl">${t('ps.dec')}</div></div>
-    <div class="ps-item"><div class="ps-num bad">${redRisks}</div><div class="ps-lbl">${t('ps.risk')}</div></div>
+    <a class="ps-item ps-link" href="#t2" data-ps-go="t2"><div class="ps-num ${cls(filledKPIs, kpiTotal)}">${filledKPIs} / ${kpiTotal}</div><div class="ps-lbl">${t('ps.kpi')}</div><div class="ps-go" aria-hidden="true">${t('ps.open')}</div></a>
+    <a class="ps-item ps-link" href="#t7" data-ps-go="t7"><div class="ps-num ${cls(closedGaps, GAPS.length)}">${closedGaps} / ${GAPS.length}</div><div class="ps-lbl">${t('ps.gap')}</div><div class="ps-go" aria-hidden="true">${t('ps.open')}</div></a>
+    <a class="ps-item ps-link" href="#t8" data-ps-go="t8"><div class="ps-num ${cls(approvedDec, DECISIONS.length)}">${approvedDec} / ${DECISIONS.length}</div><div class="ps-lbl">${t('ps.dec')}</div><div class="ps-go" aria-hidden="true">${t('ps.open')}</div></a>
+    <a class="ps-item ps-link" href="#t5" data-ps-go="t5" data-ps-risk="Red"><div class="ps-num bad">${redRisks}</div><div class="ps-lbl">${t('ps.risk')}</div><div class="ps-go" aria-hidden="true">${t('ps.open')}</div></a>
   `;
   $('#portfolioStatus').innerHTML = html;
 }
@@ -2390,6 +2395,17 @@ function wireGlobal(){
   $('#risk-reset').addEventListener('click', resetRiskFilters);
   $('#proj-csv').addEventListener('click', exportProjectsCSV);
   $('#risk-csv').addEventListener('click', exportRisksCSV);
+  $('#portfolioStatus').addEventListener('click', e => {
+    const tile = e.target.closest('[data-ps-go]');
+    if (!tile) return;
+    e.preventDefault();
+    if (tile.dataset.psRisk) {
+      $('#risk-rating').value = tile.dataset.psRisk;
+      captureFilters();
+      renderRisks();
+    }
+    switchTab(tile.dataset.psGo);
+  });
   $('#gap-csv').addEventListener('click', exportGapsCSV);
   $('#kpi-csv').addEventListener('click', exportKPIsCSV);
   window.addEventListener('hashchange', () => {

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="400" viewBox="0 0 1280 400" role="img" aria-labelledby="t d">
+  <title id="t">Annual Operational Plan 2026</title>
+  <desc id="d">Offline, single-file executive dashboard for annual and monthly performance. No backend, no telemetry.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#243085"/>
+      <stop offset="0.6" stop-color="#1A2A6C"/>
+      <stop offset="1" stop-color="#0F1A4A"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="400" fill="url(#bg)"/>
+  <rect y="392" width="1280" height="8" fill="#0E7490"/>
+  <g transform="translate(780 70)">
+    <rect width="420" height="260" rx="18" fill="#ffffff" fill-opacity="0.06" stroke="#ffffff" stroke-opacity="0.18"/>
+    <g font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="30">
+      <text x="40" y="70" fill="#4ade80">10</text>
+      <text x="230" y="70" fill="#fbbf24">8</text>
+    </g>
+    <g font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" fill="#c7d2fe" letter-spacing="1">
+      <text x="40" y="92">EXECUTIVE KPIS</text>
+      <text x="230" y="92">PLAN VIEWS</text>
+    </g>
+    <path d="M40 210 L100 180 L160 192 L220 150 L280 162 L340 124 L380 132" fill="none" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <g fill="#ffffff" fill-opacity="0.12">
+      <rect x="40" y="226" width="60" height="8" rx="4"/>
+      <rect x="120" y="226" width="60" height="8" rx="4"/>
+      <rect x="200" y="226" width="60" height="8" rx="4"/>
+    </g>
+    <circle cx="340" cy="124" r="7" fill="#0F1A4A" stroke="#38bdf8" stroke-width="3"/>
+  </g>
+  <text x="80" y="128" fill="#67e8f9" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" letter-spacing="3">VERSION 0.6 · OFFLINE PWA</text>
+  <text x="80" y="200" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="800">Annual Operational</text>
+  <text x="80" y="262" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="800">Plan 2026</text>
+  <text x="80" y="312" fill="#c7d2fe" font-family="Arial, Helvetica, sans-serif" font-size="22">Annual and monthly performance without spreadsheet chaos.</text>
+  <text x="80" y="346" fill="#c7d2fe" font-family="Arial, Helvetica, sans-serif" font-size="22">Your data stays on your device.</text>
+</svg>
