@@ -1696,7 +1696,8 @@ function restoreTabFromHash(){
 }
 
 function csvCell(v){
-  const s = String(v ?? '');
+  let s = String(v ?? '');
+  if (/^[=+\-@]/.test(s)) s = "'" + s;
   return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
 }
 function csvDownload(headers, rows, filename){
