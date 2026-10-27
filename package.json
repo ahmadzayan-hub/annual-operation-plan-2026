@@ -3,7 +3,7 @@
   "version": "0.6.2",
   "private": true,
   "scripts": {
-    "test": "node scripts/check-current-release.mjs && node --test tests/state.test.cjs",
+    "test": "node scripts/check-current-release.mjs && node --test tests/state.test.cjs tests/csv.test.cjs",
     "test:browser": "node tests/browser-smoke.cjs",
     "test:audit": "node tests/audit.cjs",
     "build": "node scripts/build-static.mjs"
