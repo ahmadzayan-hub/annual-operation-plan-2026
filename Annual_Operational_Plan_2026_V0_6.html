@@ -501,9 +501,9 @@ h2.section-title, h3.section-title{margin:0 0 6px}  /* reset UA h2/h3 margin */
   padding:4px 2px calc(4px + env(safe-area-inset-bottom,0));
 }
 .mobile-tabs .mtb{
-  flex:1;min-width:0;padding:8px 4px;display:flex;flex-direction:column;
+  flex:1 0 auto;min-height:44px;padding:6px 12px;display:flex;flex-direction:column;white-space:nowrap;
   align-items:center;justify-content:center;gap:2px;
-  color:var(--grey);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.2px;
+  color:var(--grey);font-size:11px;font-weight:700;
   border:0;background:transparent;cursor:pointer;
 }
 .mobile-tabs .mtb .mnum{
@@ -783,14 +783,14 @@ h2.section-title, h3.section-title{margin:0 0 6px}  /* reset UA h2/h3 margin */
 
 <nav class="mobile-tabs" id="mobileTabs" aria-label="Section navigation">
   <div class="mobile-tabs-scroll" tabindex="0" aria-label="Section navigation">
-    <button class="mtb active" data-mtab="t1"><span class="mnum">1</span><span data-i18n="mtab.exec">Exec</span></button>
-    <button class="mtb" data-mtab="t2"><span class="mnum">2</span><span data-i18n="mtab.dash">Dash</span></button>
-    <button class="mtb" data-mtab="t3"><span class="mnum">3</span><span data-i18n="mtab.app">APP</span></button>
-    <button class="mtb" data-mtab="t4"><span class="mnum">4</span><span data-i18n="mtab.proj">Proj</span></button>
-    <button class="mtb" data-mtab="t5"><span class="mnum">5</span><span data-i18n="mtab.risk">Risk</span></button>
-    <button class="mtb" data-mtab="t6"><span class="mnum">6</span><span data-i18n="mtab.dig">Dig</span></button>
-    <button class="mtb" data-mtab="t7"><span class="mnum">7</span><span data-i18n="mtab.gap">Gaps</span></button>
-    <button class="mtb" data-mtab="t8"><span class="mnum">8</span><span data-i18n="mtab.dec">Dec</span></button>
+    <button class="mtb active" data-mtab="t1"><span class="mnum" aria-hidden="true">1</span><span data-i18n="tab.exec">Executive Summary</span></button>
+    <button class="mtb" data-mtab="t2"><span class="mnum" aria-hidden="true">2</span><span data-i18n="tab.dash">Monthly Dashboard</span></button>
+    <button class="mtb" data-mtab="t3"><span class="mnum" aria-hidden="true">3</span><span data-i18n="tab.app">Asset Performance Plan</span></button>
+    <button class="mtb" data-mtab="t4"><span class="mnum" aria-hidden="true">4</span><span data-i18n="tab.proj">Projects &amp; Budget</span></button>
+    <button class="mtb" data-mtab="t5"><span class="mnum" aria-hidden="true">5</span><span data-i18n="tab.risk">Risks &amp; Controls</span></button>
+    <button class="mtb" data-mtab="t6"><span class="mnum" aria-hidden="true">6</span><span data-i18n="tab.dig">Digital Transformation</span></button>
+    <button class="mtb" data-mtab="t7"><span class="mnum" aria-hidden="true">7</span><span data-i18n="tab.gap">Data Gaps (V1.0)</span></button>
+    <button class="mtb" data-mtab="t8"><span class="mnum" aria-hidden="true">8</span><span data-i18n="tab.dec">Decisions Required</span></button>
   </div>
 </nav>
 

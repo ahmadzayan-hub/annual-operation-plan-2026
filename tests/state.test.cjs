@@ -68,3 +68,11 @@ test('snapshot accepts a generated backup and bounded text markup safely', () =>
 test('decision and gap controls use keyboard-operable buttons', () => {
   assert.doesNotMatch(html, /<span[^>]+class="status-pill[^>]+data-(?:decision|gap)=/);
 });
+
+test('mobile navigation uses full translated section names', () => {
+  const html = require('node:fs').readFileSync('Annual_Operational_Plan_2026_V0_6.html', 'utf8');
+  const nav = html.match(/<nav class="mobile-tabs".*?<\/nav>/s)[0];
+  assert.match(nav, /data-i18n="tab\.app">Asset Performance Plan/);
+  assert.match(nav, /data-i18n="tab\.dec">Decisions Required/);
+  assert.equal((nav.match(/aria-hidden="true"/g) || []).length, 8);
+});
